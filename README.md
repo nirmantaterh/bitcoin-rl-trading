@@ -1,6 +1,6 @@
 # bitcoin-rl-trading
 
-Reproducible re-implementation of the Springer paper **"A Deep Reinforcement Learning Approach to Bitcoin Trading"** ([arXiv:2209.12664](https://arxiv.org/abs/2209.12664)), extended with proper baselines, risk-adjusted metrics, and modern sentiment models.
+Reproducible re-implementation of the Springer paper **"Feature-Rich Long-term Bitcoin Trading Assistant** ([arXiv:2209.12664](https://arxiv.org/abs/2209.12664)), extended with proper baselines, risk-adjusted metrics, and modern sentiment models.
 
 > **The paper introduced the idea. This repo is how you'd build it today.**
 

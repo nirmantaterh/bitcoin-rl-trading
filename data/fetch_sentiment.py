@@ -1,8 +1,13 @@
 """
-Fetch BTC news headlines and score them with FinBERT (or VADER for paper replication).
+Fetch BTC news headlines and score them with FinBERT or CryptoBERT.
 
 Primary source: CryptoPanic API (free tier, set CRYPTOPANIC_API_KEY in .env)
 Fallback: bundled sample headlines in data/cache/sample_headlines.csv
+
+Modes:
+  finbert    — ProsusAI/finbert, trained on financial news (best match for CryptoPanic headlines)
+  cryptobert — ElKulako/cryptobert, trained on Reddit/Twitter crypto text
+               (domain mismatch vs news headlines — use for comparison experiments only)
 
 Output: data/cache/btc_sentiment_<mode>.csv
 Columns: date, headline, source, sentiment_score, sentiment_pos, sentiment_neg, sentiment_neu
@@ -49,7 +54,7 @@ def fetch_cryptopanic(start: str, end: str, api_key: str) -> pd.DataFrame:
             break
 
         for post in results:
-            pub_dt = pd.Timestamp(post["published_at"]).tz_localize(None)
+            pub_dt = pd.Timestamp(post["published_at"]).tz_convert(None)
             if pub_dt < start_dt:
                 return pd.DataFrame(headlines)  # past our range, done
             if pub_dt <= end_dt:
@@ -113,22 +118,48 @@ def score_finbert(headlines: list[str], model_name: str = "ProsusAI/finbert", ba
     return results
 
 
-def score_vader(headlines: list[str]) -> list[dict]:
-    """Score headlines with VADER — used for paper replication mode."""
-    import nltk
-    from nltk.sentiment.vader import SentimentIntensityAnalyzer
+def score_cryptobert(headlines: list[str], model_name: str = "ElKulako/cryptobert", batch_size: int = 32) -> list[dict]:
+    """Score headlines with CryptoBERT.
 
-    nltk.download("vader_lexicon", quiet=True)
-    sia = SentimentIntensityAnalyzer()
+    Note: CryptoBERT was trained on Reddit/Twitter crypto text — domain mismatch
+    when scoring news headlines. Use finbert for production; cryptobert for ablation.
+    """
+    import torch
+    from transformers import TextClassificationPipeline, AutoModelForSequenceClassification, AutoTokenizer
+
+    print(f"[sentiment] loading CryptoBERT ({model_name})...")
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSequenceClassification.from_pretrained(model_name)
+    model.eval()
+
+    pipe = TextClassificationPipeline(
+        model=model,
+        tokenizer=tokenizer,
+        max_length=64,
+        truncation=True,
+        padding="max_length",
+        top_k=None,  # return all class scores, not just the top label
+    )
+
     results = []
-    for h in headlines:
-        v = sia.polarity_scores(h)
-        results.append({
-            "positive": max(v["pos"], 0),
-            "negative": max(v["neg"], 0),
-            "neutral": v["neu"],
-            "sentiment_score": v["compound"],  # VADER compound [-1, 1]
-        })
+    for i in range(0, len(headlines), batch_size):
+        batch = headlines[i : i + batch_size]
+        preds = pipe(batch)
+        for pred_list in preds:
+            scores = {p["label"].lower(): p["score"] for p in pred_list}
+            pos = scores.get("bullish", 0.0)
+            neg = scores.get("bearish", 0.0)
+            neu = scores.get("neutral", 0.0)
+            results.append({
+                "positive": pos,
+                "negative": neg,
+                "neutral": neu,
+                "sentiment_score": pos - neg,
+            })
+
+        if (i // batch_size) % 10 == 0:
+            print(f"[sentiment] scored {min(i + batch_size, len(headlines))}/{len(headlines)}")
+
     return results
 
 
@@ -157,7 +188,7 @@ def fetch_sentiment(
 ) -> pd.DataFrame:
     """
     Full pipeline: fetch headlines → score → aggregate to daily.
-    mode: "finbert" (default) or "vader" (paper replication)
+    mode: "finbert" (default, best for news) or "cryptobert" (ablation only)
     """
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     out_file = CACHE_DIR / f"btc_sentiment_{mode}.csv"
@@ -186,10 +217,10 @@ def fetch_sentiment(
     texts = headlines_df["headline"].tolist()
     if mode == "finbert":
         scores = score_finbert(texts)
-    elif mode == "vader":
-        scores = score_vader(texts)
+    elif mode == "cryptobert":
+        scores = score_cryptobert(texts)
     else:
-        raise ValueError(f"Unknown mode: {mode}. Use 'finbert' or 'vader'.")
+        raise ValueError(f"Unknown mode: {mode}. Use 'finbert' or 'cryptobert'.")
 
     scored_df = pd.concat([
         headlines_df.reset_index(drop=True),
@@ -208,7 +239,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--start", default="2019-01-01")
     parser.add_argument("--end", default="2024-12-31")
-    parser.add_argument("--mode", default="finbert", choices=["finbert", "vader"])
+    parser.add_argument("--mode", default="finbert", choices=["finbert", "cryptobert"])
     parser.add_argument("--refresh", action="store_true")
     args = parser.parse_args()
 

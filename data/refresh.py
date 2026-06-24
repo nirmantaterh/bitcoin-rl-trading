@@ -21,16 +21,17 @@ def refresh(end: str | None = None) -> None:
 
     print(f"=== refreshing data: {start} → {today} ===\n")
 
+    cache_dir = Path(__file__).parent / "cache"
+
     print("--- price ---")
-    # Force re-fetch by deleting stale cache
-    price_cache = Path("data/cache/btc_price.csv")
+    price_cache = cache_dir / "btc_price.csv"
     if price_cache.exists():
         price_cache.unlink()
     price_df = fetch_price(start=start, end=today)
     print(f"price rows: {len(price_df)}\n")
 
     print("--- sentiment (finbert) ---")
-    sent_cache = Path("data/cache/btc_sentiment_finbert.csv")
+    sent_cache = cache_dir / "btc_sentiment_finbert.csv"
     if sent_cache.exists():
         sent_cache.unlink()
     sent_df = fetch_sentiment(start=start, end=today, mode="finbert", refresh=True)

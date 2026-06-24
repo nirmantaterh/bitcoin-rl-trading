@@ -21,8 +21,8 @@ BINANCE_URL = "https://api.binance.com/api/v3/klines"
 
 def fetch_binance(symbol: str, start: str, end: str) -> pd.DataFrame:
     """Pull daily klines from Binance public REST. No API key needed."""
-    start_ms = int(pd.Timestamp(start).timestamp() * 1000)
-    end_ms = int(pd.Timestamp(end).timestamp() * 1000)
+    start_ms = int(pd.Timestamp(start, tz="UTC").timestamp() * 1000)
+    end_ms = int(pd.Timestamp(end, tz="UTC").timestamp() * 1000)
 
     all_rows = []
     while start_ms < end_ms:
@@ -83,8 +83,9 @@ def fetch_price(symbol: str = "BTCUSDT", start: str = "2019-01-01", end: str = "
     # Use cache if it covers the full requested range
     if CACHE_FILE.exists():
         cached = pd.read_csv(CACHE_FILE, parse_dates=["date"])
-        if (cached["date"].min() <= pd.Timestamp(start) and
-                cached["date"].max() >= pd.Timestamp(end) - pd.Timedelta(days=2)):
+        cached_max = cached["date"].max().date()
+        req_end = pd.Timestamp(end).date()
+        if cached["date"].min() <= pd.Timestamp(start) and cached_max >= req_end:
             mask = (cached["date"] >= start) & (cached["date"] <= end)
             print(f"[price] loaded {mask.sum()} rows from cache")
             return cached[mask].reset_index(drop=True)

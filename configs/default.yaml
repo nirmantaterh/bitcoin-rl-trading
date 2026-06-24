@@ -26,8 +26,9 @@ features:
   sentiment_ma_window: 5
 
 sentiment:
-  mode: "finbert"        # "vader" for paper replication, "finbert" for modernized
+  mode: "finbert"        # "finbert" (default, news-domain match) or "cryptobert" (ablation)
   model_name: "ProsusAI/finbert"
+  cryptobert_model_name: "ElKulako/cryptobert"
   batch_size: 32
   max_length: 512
 

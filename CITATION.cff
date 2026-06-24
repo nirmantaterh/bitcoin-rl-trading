@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this implementation, please cite the original paper."
+references:
+  - type: article
+    authors:
+      - family-names: Lucarelli
+        given-names: Giulio
+      - family-names: Borrotti
+        given-names: Matteo
+    title: "A Deep Reinforcement Learning Approach to Bitcoin Trading"
+    year: 2022
+    url: "https://arxiv.org/abs/2209.12664"
+    journal: "arXiv preprint"
+    identifiers:
+      - type: url
+        value: "https://arxiv.org/abs/2209.12664"

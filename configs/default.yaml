@@ -1,0 +1,65 @@
+# All hyperparameters in one place. Override via CLI flags in train.py.
+
+data:
+  symbol: "BTCUSDT"
+  interval: "1d"
+  train_start: "2019-01-01"
+  train_end:   "2021-12-31"
+  test_periods:
+    - name: "bear_2022"
+      start: "2022-01-01"
+      end:   "2022-12-31"
+    - name: "recovery_2023"
+      start: "2023-01-01"
+      end:   "2024-06-30"
+  cache_dir: "data/cache"
+
+features:
+  sma_window: 147        # 21 weeks × 7 days
+  ema_window: 140        # 20 weeks × 7 days
+  rsi_window: 14
+  volatility_window: 21
+  momentum_window: 10
+  # BMSB params — not disclosed in paper, documented assumption
+  bmsb_ks: 0.02
+  bmsb_kp: 0.02
+  sentiment_ma_window: 5
+
+sentiment:
+  mode: "finbert"        # "vader" for paper replication, "finbert" for modernized
+  model_name: "ProsusAI/finbert"
+  batch_size: 32
+  max_length: 512
+
+env:
+  initial_amount: 10000.0
+  buy_cost_pct: 0.001
+  sell_cost_pct: 0.001
+  hold_threshold: 0.1    # |action| < threshold → hold
+  reward_scaling: 1.0
+  ruin_threshold: 0.1    # episode ends if portfolio < 10% of initial
+
+agents:
+  a2c:                   # paper replication params
+    timesteps: 50000
+    learning_rate: 0.007
+    n_steps: 5
+    policy: "MlpPolicy"
+    seeds: [42, 123, 456, 789, 1337]
+
+  sac:                   # modernized
+    timesteps: 100000
+    learning_rate: 0.0001
+    buffer_size: 100000
+    batch_size: 128
+    ent_coef: "auto_0.1"
+    policy: "MlpPolicy"
+    seeds: [42, 123, 456, 789, 1337]
+
+  td3:
+    timesteps: 100000
+    learning_rate: 0.001
+    buffer_size: 1000000
+    batch_size: 100
+    policy: "MlpPolicy"
+    seeds: [42, 123, 456, 789, 1337]
